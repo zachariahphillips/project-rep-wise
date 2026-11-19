@@ -23,7 +23,41 @@
   </script>
 </head>
 <body class="min-h-screen bg-stone-50 text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100">
+  <header class="border-b border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
+    <div class="mx-auto flex max-w-md items-center justify-between px-4 py-3">
+      <a href="{{ url_for('index') }}" aria-label="RepWise home"
+         class="text-xl font-bold tracking-tight">
+        Rep<span class="text-indigo-600 dark:text-indigo-400">Wise</span>
+      </a>
+      {% if current_user.is_authenticated %}
+        <form action="{{ url_for('logout') }}" method="post" class="m-0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button type="submit"
+                  class="inline-flex h-11 items-center rounded-xl px-3 text-sm font-medium text-stone-700 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-300 dark:text-stone-300 dark:hover:bg-stone-800">
+            Sign out
+          </button>
+        </form>
+      {% endif %}
+    </div>
+  </header>
+
   <main class="mx-auto max-w-md px-4 pb-28 pt-6">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div id="flash-messages" class="mb-5 space-y-2">
+          {% for category, message in messages %}
+            {% set tone = {
+              'success': 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200',
+              'error':   'border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200',
+              'info':    'border-stone-200 bg-white text-stone-800 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200',
+            }.get(category, 'border-stone-200 bg-white text-stone-800 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200') %}
+            <div role="{{ 'alert' if category == 'error' else 'status' }}"
+                 class="rounded-xl border px-4 py-3 text-sm {{ tone }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
     {% block content %}{% endblock %}
   </main>
 </body>

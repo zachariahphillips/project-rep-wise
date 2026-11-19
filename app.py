@@ -1,27 +1,30 @@
 """
 RepWise — Flask app factory and routes.
 
-Phase 0 is the skeleton: config, security guards, SQLite tuning, a landing
-page, and /healthz. Auth lands in Phase 1A, the exercise library in 1B.
+Routes are grouped by feature: public pages, auth, then the signed-in app.
 See PLAN.md for the roadmap.
 """
 from __future__ import annotations
 
 import logging
 import os
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
-from flask import Flask, render_template
+from flask import Flask, flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import event, text
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from extensions import csrf, db
+from extensions import csrf, db, login_manager
+from forms import LoginForm, SignupForm
+from models import User
 
 load_dotenv()
 
 log = logging.getLogger(__name__)
 
-APP_PHASE = "0"
+APP_PHASE = "1A"
 
 _PLACEHOLDER_SECRET_KEY = "dev-secret-change-me-in-env"
 
@@ -105,21 +108,117 @@ def create_app() -> Flask:
 
     db.init_app(app)
     csrf.init_app(app)
+    login_manager.init_app(app)
+    login_manager.login_view = "login"
+    login_manager.login_message = "Please sign in to continue."
+    login_manager.login_message_category = "info"
 
     with app.app_context():
         if _is_sqlite_database_url(app.config["SQLALCHEMY_DATABASE_URI"]):
             event.listen(db.engine, "connect", _configure_sqlite_journal_mode)
         db.create_all()
 
+    @login_manager.user_loader
+    def load_user(user_id: str):
+        return db.session.get(User, int(user_id))
+
     _register_routes(app)
     return app
 
 
+def _is_safe_next_url(next_url: str) -> bool:
+    r"""
+    A `?next=` URL is safe only if it's a same-origin path with no scheme
+    and no host:
+      - `/today`          → safe
+      - `//evil.com`      → unsafe (protocol-relative)
+      - `/\evil.com`      → unsafe (browsers normalize \ to /, so this
+                            becomes //evil.com even though urlsplit sees
+                            an empty netloc)
+      - `http://evil`     → unsafe (full URL)
+      - `javascript:…`    → unsafe (scheme)
+    """
+    if not next_url:
+        return False
+    if "\\" in next_url:
+        return False
+    parsed = urlsplit(next_url)
+    return not parsed.netloc and not parsed.scheme
+
+
 def _register_routes(app: Flask) -> None:
+
+    # --- Public -------------------------------------------------------------
 
     @app.route("/")
     def index():
+        if current_user.is_authenticated:
+            return redirect(url_for("today"))
         return render_template("index.html")
+
+    # --- Auth ---------------------------------------------------------------
+
+    @app.route("/signup", methods=["GET", "POST"])
+    def signup():
+        if current_user.is_authenticated:
+            return redirect(url_for("today"))
+
+        form = SignupForm()
+        if form.validate_on_submit():
+            email = form.email.data.strip().lower()
+            if User.query.filter_by(email=email).first() is not None:
+                flash("An account with that email already exists. Try signing in.", "error")
+                return render_template("signup.html", form=form)
+
+            user = User(
+                email=email,
+                name=form.name.data.strip(),
+                unit_pref=form.unit_pref.data,
+            )
+            user.set_password(form.password.data)
+            db.session.add(user)
+            db.session.commit()
+
+            login_user(user, remember=True)
+            flash(f"Welcome to RepWise, {user.first_name}!", "success")
+            return redirect(url_for("today"))
+
+        return render_template("signup.html", form=form)
+
+    @app.route("/login", methods=["GET", "POST"])
+    def login():
+        if current_user.is_authenticated:
+            return redirect(url_for("today"))
+
+        form = LoginForm()
+        if form.validate_on_submit():
+            email = form.email.data.strip().lower()
+            user = User.query.filter_by(email=email).first()
+            if user is None or not user.check_password(form.password.data):
+                flash("Invalid email or password.", "error")
+                return render_template("login.html", form=form)
+
+            login_user(user, remember=form.remember.data)
+            next_url = request.args.get("next")
+            if next_url and _is_safe_next_url(next_url):
+                return redirect(next_url)
+            return redirect(url_for("today"))
+
+        return render_template("login.html", form=form)
+
+    @app.route("/logout", methods=["POST"])
+    @login_required
+    def logout():
+        logout_user()
+        flash("You've been signed out.", "info")
+        return redirect(url_for("login"))
+
+    # --- Signed-in app ------------------------------------------------------
+
+    @app.route("/today")
+    @login_required
+    def today():
+        return render_template("today.html")
 
     @app.route("/healthz")
     def healthz():

@@ -44,8 +44,11 @@ annotations`, `Optional[...]` instead of `X | None` at runtime).
 
 | Path | What lives there |
 |---|---|
-| `app.py` | App factory, config guards, routes. |
-| `extensions.py` | `db`, `csrf` singletons. |
+| `app.py` | App factory, config guards, routes (public, auth, signed-in app). |
+| `models.py` | SQLAlchemy models. |
+| `forms.py` | Flask-WTF forms. |
+| `extensions.py` | `db`, `login_manager`, `csrf` singletons. |
+| `templates/_macros.html` | Shared form-field and button macros. |
 | `templates/` | Jinja. `_partial.html` files will be htmx swap targets. |
 | `assets/css/app.css` | Tailwind entry; compiled to `static/css/app.css` (committed). |
 | `tests/conftest.py` | CSRF-aware `Client` wrapper, per-test SQLite file. |

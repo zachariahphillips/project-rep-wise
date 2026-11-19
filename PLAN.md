@@ -2,7 +2,7 @@
 
 A mobile-first workout app that **builds you a training plan from your goals**, then becomes the logbook you use on the gym floor — and adjusts the plan as you get stronger.
 
-**Current status (Phase 0, 2026-11-18):** Skeleton is up: app factory on port 5002, `/healthz` with a DB check, production secret-key guard, secure cookies, ProxyFix, SQLite journal-mode tuning, compiled Tailwind, CI. 16 pytest tests green. Next is Phase 1A (auth).
+**Current status (Phase 1A, 2026-11-19):** Skeleton plus email/password auth: signup with a lb/kg preference, login with remember-me and safe `?next=` redirects, POST-only logout, and a signed-in `/today` placeholder. 45 pytest tests green. Next is Phase 1B (exercise library).
 
 ---
 
@@ -57,8 +57,18 @@ Every phase follows the PantryPal workflow: plan → implement → `tests/test_p
 
 ### Phase 1 — Foundation: log a workout
 
-#### 1A — Auth (1 sitting)
+#### 1A — Auth (1 sitting) — DONE 2026-11-19
 - Signup / login / logout, `User` model, CSRF, safe `?next=` handling (port PantryPal's `_is_safe_next_url` and the production `SECRET_KEY` guard)
+
+Shipped:
+- `User` model (`models.py`) with pbkdf2 password hashing, `unit_pref` (`lb`/`kg`, chosen at signup as two big toggle buttons), and a `first_name` helper
+- `SignupForm` / `LoginForm` (`forms.py`); name and email are whitespace-stripped *before* validation, because phone autocomplete adds trailing spaces and the `Email()` validator rejected them (caught by `test_email_is_normalized`)
+- Emails are lowercased; unknown email and wrong password share one error message so the form doesn't reveal which emails have accounts
+- Remember-me defaults on (phone-first); logout is POST-only
+- `/` shows the landing page when signed out and redirects to `/today` when signed in; `/today` is a placeholder until Phase 1C
+- Shared `_macros.html` (`text_field`, `primary_button`), flash messages, and a header with Sign out in `base.html`; dark mode throughout
+- `tests/test_phase_1a.py` — 29 cases; `conftest.py` gains `sign_up` / `log_in` / `log_out` helpers and a `two_clients` fixture
+- Visual check at 390×844: signup → kg selected → lands on Today with welcome flash
 
 #### 1B — Exercise library (1–2 sittings)
 - `Exercise` model + `seed_exercises.py` with ~60 exercises, each tagged (see "Exercise library" below)

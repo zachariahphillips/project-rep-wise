@@ -3,6 +3,9 @@ flask-sqlalchemy>=3.1.0
 # CSRF protection is on from Phase 0 so every later form and htmx request
 # goes through the same guard the tests exercise.
 flask-wtf>=1.2.0
+flask-login>=0.6.3
+# Required by WTForms' Email() validator on the signup and login forms.
+email-validator>=2.1.0
 python-dotenv>=1.0.0
 
 # --- production WSGI server ---

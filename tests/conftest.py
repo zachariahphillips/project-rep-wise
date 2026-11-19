@@ -103,3 +103,40 @@ class Client:
 def client(app):
     """A Client wired up to a fresh test cookie jar."""
     return Client(app.test_client())
+
+
+@pytest.fixture
+def two_clients(app):
+    """Two independent cookie jars on the same app, for cross-user isolation."""
+    return Client(app.test_client()), Client(app.test_client())
+
+
+# ---- helpers callers re-use ----
+
+DEFAULT_PASSWORD = "testpass123"
+
+
+def sign_up(c: Client, email: str, name: str, password: str = DEFAULT_PASSWORD,
+            unit_pref: str = "lb"):
+    """Create an account; expects landing on /today signed in."""
+    resp = c.post("/signup", data={
+        "name": name, "email": email, "password": password,
+        "unit_pref": unit_pref, "submit": "Create account",
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    assert resp.request.path == "/today", "signup didn't land on /today"
+    return resp
+
+
+def log_in(c: Client, email: str, password: str = DEFAULT_PASSWORD, *,
+           remember: bool = True, next_url: Optional[str] = None,
+           follow_redirects: bool = True):
+    data = {"email": email, "password": password, "submit": "Sign in"}
+    if remember:
+        data["remember"] = "y"
+    path = "/login" if next_url is None else f"/login?next={next_url}"
+    return c.post(path, data=data, follow_redirects=follow_redirects)
+
+
+def log_out(c: Client):
+    return c.post("/logout", follow_redirects=True)

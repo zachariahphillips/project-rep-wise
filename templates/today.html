@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Today · RepWise{% endblock %}
+
+{% block content %}
+<section>
+  <h1 class="text-2xl font-semibold tracking-tight">Hey {{ current_user.first_name }}</h1>
+  <p class="mt-1 text-sm text-stone-500 dark:text-stone-400">Ready when you are.</p>
+
+  <div class="mt-6 rounded-2xl border border-dashed border-stone-300 bg-white px-5 py-8 text-center dark:border-stone-700 dark:bg-stone-900">
+    <p class="font-medium">No workouts yet</p>
+    <p class="mt-1 text-sm text-stone-500 dark:text-stone-400">
+      Workout logging is coming next. Weights will show in {{ current_user.unit_pref }}.
+    </p>
+  </div>
+</section>
+{% endblock %}
