@@ -2,7 +2,7 @@
 
 A mobile-first workout app that **builds you a training plan from your goals**, then becomes the logbook you use on the gym floor — and adjusts the plan as you get stronger.
 
-**Current status (Phase 1A, 2026-11-19):** Skeleton plus email/password auth: signup with a lb/kg preference, login with remember-me and safe `?next=` redirects, POST-only logout, and a signed-in `/today` placeholder. 45 pytest tests green. Next is Phase 1B (exercise library).
+**Current status (Phase 1A, 2026-11-19):** Skeleton plus email/password auth: signup with a lb/kg preference, login with remember-me and safe `?next=` redirects, POST-only logout, and a signed-in `/today` placeholder. 45 pytest tests green. Next is Phase 1B1 (exercise model + tag vocabulary).
 
 ---
 
@@ -70,16 +70,39 @@ Shipped:
 - `tests/test_phase_1a.py` — 29 cases; `conftest.py` gains `sign_up` / `log_in` / `log_out` helpers and a `two_clients` fixture
 - Visual check at 390×844: signup → kg selected → lands on Today with welcome flash
 
-#### 1B — Exercise library (1–2 sittings)
-- `Exercise` model + `seed_exercises.py` with ~60 exercises, each tagged (see "Exercise library" below)
-- `/exercises` browse + search + filter by equipment / muscle
-- Users can add custom exercises (flagged `is_custom`, owned by the user)
+#### 1B — Exercise library (split into three 1-sitting chunks)
+
+Split so the tag vocabulary is settled on a small data set before 60 exercises depend on it. Filters and custom exercises moved after 1C (as 1D and 1E) so real workout logging arrives sooner.
+
+##### 1B1 — Exercise model + tag vocabulary (1 sitting, no UI)
+- `Exercise` model (see "Data model"), with `is_custom` / `owner_user_id` columns present from the start even though 1E is what uses them
+- Controlled vocabularies as module constants: movement patterns, muscles, equipment, stresses (see "Exercise library")
+- `seed_exercises.py`: idempotent upsert keyed on `slug`, safe to re-run against a live DB
+- ~15 core lifts (squat, bench, deadlift, row, overhead press, pull-up, lunge, RDL, etc.)
+- Tests: every seeded tag is in its vocabulary, slugs are unique, re-running the seed changes nothing
+
+##### 1B2 — Fill out the library (1 sitting, data only)
+- Grow to ~60 exercises so every movement pattern has options for each equipment profile (full gym, home gym, dumbbells only, bodyweight only)
+- Coverage test: every movement pattern × equipment profile has at least one exercise. This is the guarantee Phase 5's generator relies on
+
+##### 1B3 — Browse + search (1 sitting)
+- `/exercises` grouped by movement pattern, search by name, simple detail view (muscles, equipment, stresses)
+- Bottom tab bar (Today / Exercises), same safe-area pattern as PantryPal
+- The search becomes the exercise picker 1C reuses
 
 #### 1C — Freeform workout logging (2 sittings)
-- "Start empty workout" → add exercises → log sets (weight, reps, done ✓) → Finish
+- "Start empty workout" → add exercises (picker from 1B3) → log sets (weight, reps, done ✓) → Finish
 - `/history` list of past workouts, `/history/<id>` detail
 - Edit/delete a past set; discard an in-progress workout
 - Only one in-progress workout per user at a time
+
+#### 1D — Exercise filters (1 sitting)
+- Tap-to-filter chips for equipment and muscle group on `/exercises` and in the picker
+
+#### 1E — Custom exercises (1 sitting)
+- Create / edit / delete your own exercises (`is_custom`, `owner_user_id`), visible only to you
+- Custom exercises must pick tags from the same vocabularies so the planner can use them later
+- Deleting a custom exercise that has logged sets: block it, or archive instead of delete (decide at 1E)
 
 **End state:** a working (if plain) lift log you can use on your phone.
 
