@@ -19,12 +19,13 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from extensions import csrf, db, login_manager
 from forms import LoginForm, SignupForm
 from models import User
+from seed_exercises import seed_exercises
 
 load_dotenv()
 
 log = logging.getLogger(__name__)
 
-APP_PHASE = "1A"
+APP_PHASE = "1B1"
 
 _PLACEHOLDER_SECRET_KEY = "dev-secret-change-me-in-env"
 
@@ -117,6 +118,9 @@ def create_app() -> Flask:
         if _is_sqlite_database_url(app.config["SQLALCHEMY_DATABASE_URI"]):
             event.listen(db.engine, "connect", _configure_sqlite_journal_mode)
         db.create_all()
+        # Keeps a deployed library in sync with seed_exercises.py on reload,
+        # with no manual step. Idempotent, and a no-op write when unchanged.
+        seed_exercises()
 
     @login_manager.user_loader
     def load_user(user_id: str):

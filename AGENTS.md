@@ -47,6 +47,8 @@ annotations`, `Optional[...]` instead of `X | None` at runtime).
 | `app.py` | App factory, config guards, routes (public, auth, signed-in app). |
 | `models.py` | SQLAlchemy models. |
 | `forms.py` | Flask-WTF forms. |
+| `exercise_vocab.py` | Tag vocabularies + `validate_exercise()`. Pure Python: no Flask/DB imports (test-enforced). |
+| `seed_exercises.py` | Global exercise library; upserted by slug on every app start. Edit here, never delete entries that may have logged sets. |
 | `extensions.py` | `db`, `login_manager`, `csrf` singletons. |
 | `templates/_macros.html` | Shared form-field and button macros. |
 | `templates/` | Jinja. `_partial.html` files will be htmx swap targets. |

@@ -2,7 +2,7 @@
 
 A mobile-first workout app that **builds you a training plan from your goals**, then becomes the logbook you use on the gym floor — and adjusts the plan as you get stronger.
 
-**Current status (Phase 1A, 2026-11-19):** Skeleton plus email/password auth: signup with a lb/kg preference, login with remember-me and safe `?next=` redirects, POST-only logout, and a signed-in `/today` placeholder. 45 pytest tests green. Next is Phase 1B1 (exercise model + tag vocabulary).
+**Current status (Phase 1A, 2026-11-19):** Skeleton plus email/password auth: signup with a lb/kg preference, login with remember-me and safe `?next=` redirects, POST-only logout, and a signed-in `/today` placeholder. Phase 1B1 added the exercise model, tag vocabularies, and a 15-lift seed. 89 pytest tests green. Next is Phase 1B2 (fill out the library to ~60).
 
 ---
 
@@ -74,12 +74,19 @@ Shipped:
 
 Split so the tag vocabulary is settled on a small data set before 60 exercises depend on it. Filters and custom exercises moved after 1C (as 1D and 1E) so real workout logging arrives sooner.
 
-##### 1B1 — Exercise model + tag vocabulary (1 sitting, no UI)
+##### 1B1 — Exercise model + tag vocabulary (1 sitting, no UI) — DONE 2026-11-20
 - `Exercise` model (see "Data model"), with `is_custom` / `owner_user_id` columns present from the start even though 1E is what uses them
 - Controlled vocabularies as module constants: movement patterns, muscles, equipment, stresses (see "Exercise library")
 - `seed_exercises.py`: idempotent upsert keyed on `slug`, safe to re-run against a live DB
 - ~15 core lifts (squat, bench, deadlift, row, overhead press, pull-up, lunge, RDL, etc.)
 - Tests: every seeded tag is in its vocabulary, slugs are unique, re-running the seed changes nothing
+
+Shipped:
+- `exercise_vocab.py`: movement patterns, muscles, equipment, stresses, the four equipment profiles, `fits_equipment()`, and `validate_exercise()`. No Flask/DB imports (pinned by an AST-based test) so the 5B generator and 1E form can share it
+- `Exercise` model with JSON list columns for muscles/equipment/stresses; `increment_lb` / `increment_kg` replace the single `default_increment` (both NULL = progress by reps, e.g. push-ups and pull-ups)
+- `seed_exercises.py` with 15 core lifts covering all seven main movement patterns; runs on every `create_app()` so deploys pick up library edits automatically. Updates rows in place (ids stable for logged sets), never deletes, never touches custom exercises, and refuses to boot on invalid seed data
+- Validation caught one real bug during testing: `difficulty: True` passed because Python's `bool` is an `int`
+- `tests/test_phase_1b1.py` — 44 cases
 
 ##### 1B2 — Fill out the library (1 sitting, data only)
 - Grow to ~60 exercises so every movement pattern has options for each equipment profile (full gym, home gym, dumbbells only, bodyweight only)
@@ -267,7 +274,7 @@ Each exercise is tagged with:
 | `difficulty` | 1–3 |
 | `is_compound` | true |
 | `stresses` | knees, lower-back |
-| `default_increment` | 10 lb / 5 kg |
+| `increment_lb` / `increment_kg` | 10 / 5 (both empty for bodyweight moves that progress by reps) |
 
 Equipment profiles offered in the questionnaire: full gym, home gym (barbell + rack + dumbbells), dumbbells only, bodyweight only, custom.
 
@@ -282,7 +289,8 @@ users
 exercises
   id, slug (unique), name, movement_pattern, primary_muscles (json),
   secondary_muscles (json), equipment (json), difficulty, is_compound,
-  stresses (json), default_increment, is_custom, owner_user_id (null = global)
+  stresses (json), increment_lb, increment_kg (both null = progress by reps),
+  is_custom, owner_user_id (null = global)
 
 training_profiles                                   -- Phase 5A
   id, user_id (unique), goal, experience, days_per_week, minutes_per_session,
