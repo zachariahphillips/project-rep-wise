@@ -25,7 +25,7 @@ load_dotenv()
 
 log = logging.getLogger(__name__)
 
-APP_PHASE = "1B1"
+APP_PHASE = "1B2"
 
 _PLACEHOLDER_SECRET_KEY = "dev-secret-change-me-in-env"
 

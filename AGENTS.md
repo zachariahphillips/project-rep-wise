@@ -48,7 +48,8 @@ annotations`, `Optional[...]` instead of `X | None` at runtime).
 | `models.py` | SQLAlchemy models. |
 | `forms.py` | Flask-WTF forms. |
 | `exercise_vocab.py` | Tag vocabularies + `validate_exercise()`. Pure Python: no Flask/DB imports (test-enforced). |
-| `seed_exercises.py` | Global exercise library; upserted by slug on every app start. Edit here, never delete entries that may have logged sets. |
+| `exercise_library.py` | The global exercise data. Edit entries here; never delete one that may have logged sets. If you fill a coverage gap, update `KNOWN_GAPS` in `tests/test_phase_1b2.py`. |
+| `seed_exercises.py` | Upserts the library by slug on every app start. Logic only. |
 | `extensions.py` | `db`, `login_manager`, `csrf` singletons. |
 | `templates/_macros.html` | Shared form-field and button macros. |
 | `templates/` | Jinja. `_partial.html` files will be htmx swap targets. |

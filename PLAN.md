@@ -2,7 +2,7 @@
 
 A mobile-first workout app that **builds you a training plan from your goals**, then becomes the logbook you use on the gym floor — and adjusts the plan as you get stronger.
 
-**Current status (Phase 1A, 2026-11-19):** Skeleton plus email/password auth: signup with a lb/kg preference, login with remember-me and safe `?next=` redirects, POST-only logout, and a signed-in `/today` placeholder. Phase 1B1 added the exercise model, tag vocabularies, and a 15-lift seed. 89 pytest tests green. Next is Phase 1B2 (fill out the library to ~60).
+**Current status (Phase 1A, 2026-11-19):** Skeleton plus email/password auth: signup with a lb/kg preference, login with remember-me and safe `?next=` redirects, POST-only logout, and a signed-in `/today` placeholder. Phase 1B1 added the exercise model and tag vocabularies; 1B2 filled the library to 64 exercises with coverage guarantees. 169 pytest tests green. Next is Phase 1B3 (browse + search).
 
 ---
 
@@ -88,9 +88,16 @@ Shipped:
 - Validation caught one real bug during testing: `difficulty: True` passed because Python's `bool` is an `int`
 - `tests/test_phase_1b1.py` — 44 cases
 
-##### 1B2 — Fill out the library (1 sitting, data only)
+##### 1B2 — Fill out the library (1 sitting, data only) — DONE 2026-11-23
 - Grow to ~60 exercises so every movement pattern has options for each equipment profile (full gym, home gym, dumbbells only, bodyweight only)
 - Coverage test: every movement pattern × equipment profile has at least one exercise. This is the guarantee Phase 5's generator relies on
+
+Shipped:
+- Library data moved to `exercise_library.py` (one compact `_ex(...)` row per exercise); `seed_exercises.py` is now logic only. The original 15 lifts are unchanged, so no existing rows are rewritten
+- 64 exercises across all 11 movement patterns, including isolation moves tagged `is_compound=False` so the generator can prefer compounds for main slots
+- Two explicit coverage gaps, listed in `KNOWN_GAPS` in the test: **vertical pull for dumbbells-only and bodyweight**. There's nothing overhead to pull from, so the 5B generator must fall back to a horizontal pull there. The test fails if a gap gets filled without the list being updated
+- Also guaranteed: ≥2 compound options per main pattern in a full gym (for 5C swaps), every vocabulary value is used by at least one exercise, and in a full gym each core pattern has an option avoiding each stress (except squats and knees, where the generator substitutes a hinge)
+- `tests/test_phase_1b2.py` — 81 cases
 
 ##### 1B3 — Browse + search (1 sitting)
 - `/exercises` grouped by movement pattern, search by name, simple detail view (muscles, equipment, stresses)
