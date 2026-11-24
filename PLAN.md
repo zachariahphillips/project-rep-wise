@@ -2,7 +2,7 @@
 
 A mobile-first workout app that **builds you a training plan from your goals**, then becomes the logbook you use on the gym floor — and adjusts the plan as you get stronger.
 
-**Current status (Phase 1A, 2026-11-19):** Skeleton plus email/password auth: signup with a lb/kg preference, login with remember-me and safe `?next=` redirects, POST-only logout, and a signed-in `/today` placeholder. Phase 1B1 added the exercise model and tag vocabularies; 1B2 filled the library to 64 exercises with coverage guarantees. 169 pytest tests green. Next is Phase 1B3 (browse + search).
+**Current status (Phase 1A, 2026-11-19):** Skeleton plus email/password auth: signup with a lb/kg preference, login with remember-me and safe `?next=` redirects, POST-only logout, and a signed-in `/today` placeholder. Phase 1B added the exercise model, a 64-exercise library with coverage guarantees, and the `/exercises` browse/search/detail screens with a bottom tab bar. 199 pytest tests green. Next is Phase 1C (freeform workout logging).
 
 ---
 
@@ -99,10 +99,20 @@ Shipped:
 - Also guaranteed: ≥2 compound options per main pattern in a full gym (for 5C swaps), every vocabulary value is used by at least one exercise, and in a full gym each core pattern has an option avoiding each stress (except squats and knees, where the generator substitutes a hinge)
 - `tests/test_phase_1b2.py` — 81 cases
 
-##### 1B3 — Browse + search (1 sitting)
+##### 1B3 — Browse + search (1 sitting) — DONE 2026-11-24
 - `/exercises` grouped by movement pattern, search by name, simple detail view (muscles, equipment, stresses)
 - Bottom tab bar (Today / Exercises), same safe-area pattern as PantryPal
 - The search becomes the exercise picker 1C reuses
+
+Shipped:
+- `/exercises`: groups in vocabulary order (main lifts first), alphabetical within each group; each row shows equipment (or "Bodyweight") and main muscles
+- Search matches every word against name **and** tags, so "dumbbell chest" narrows and "lower back" matches the `lower-back` tag. Live via htmx (200 ms debounce, URL kept in sync with `hx-replace-url`), and still works as a plain GET form without JavaScript. Results render from `_exercise_list.html`, the swap target 1C's picker will reuse
+- htmx history restores get the full page (they send `HX-Request` too), so Back after a search doesn't render a bare fragment
+- `/exercises/<slug>`: main vs secondary muscles, equipment, a "go easy if you have issues with" stress section, and progression in the user's unit ("Add 2.5 kg…", or "add reps" for bodyweight moves)
+- Visibility helper `_visible_exercises_query()`: global exercises plus your own custom ones; another user's custom exercise is hidden from the list and search, and 404s on its detail page
+- `exercise_vocab.label()` and `DIFFICULTY_LABELS` for display text
+- Fixed bottom tab bar (Today / Exercises) with `aria-current` and iPhone safe-area padding
+- `tests/test_phase_1b3.py` — 30 cases. Visual check at 390×844: list, live "dumbbell chest" search, and squat detail
 
 #### 1C — Freeform workout logging (2 sittings)
 - "Start empty workout" → add exercises (picker from 1B3) → log sets (weight, reps, done ✓) → Finish

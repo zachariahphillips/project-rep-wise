@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Exercises · RepWise{% endblock %}
+
+{% block content %}
+<section>
+  <h1 class="text-2xl font-semibold tracking-tight">Exercises</h1>
+
+  {# Plain GET form so search still works if htmx fails to load. #}
+  <form method="get" action="{{ url_for('exercises_list') }}" role="search" class="mt-4 mb-5">
+    <label for="exercise-search" class="sr-only">Search exercises</label>
+    <input id="exercise-search" type="search" name="q" value="{{ query }}"
+           placeholder="Search by name, muscle, or equipment"
+           autocomplete="off" enterkeyhint="search" maxlength="80"
+           hx-get="{{ url_for('exercises_list') }}"
+           hx-trigger="input changed delay:200ms, search"
+           hx-target="#exercise-list" hx-swap="outerHTML"
+           hx-replace-url="true"
+           class="block w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:focus:ring-indigo-900" />
+  </form>
+
+  {% include "_exercise_list.html" %}
+</section>
+{% endblock %}

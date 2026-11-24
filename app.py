@@ -11,21 +11,24 @@ import os
 from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
-from flask import Flask, flash, redirect, render_template, request, url_for
+from flask import Flask, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import event, text
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+import exercise_vocab
 from extensions import csrf, db, login_manager
 from forms import LoginForm, SignupForm
-from models import User
+from models import Exercise, User
 from seed_exercises import seed_exercises
 
 load_dotenv()
 
 log = logging.getLogger(__name__)
 
-APP_PHASE = "1B2"
+APP_PHASE = "1B3"
+
+EXERCISE_SEARCH_MAX_LENGTH = 80
 
 _PLACEHOLDER_SECRET_KEY = "dev-secret-change-me-in-env"
 
@@ -126,6 +129,9 @@ def create_app() -> Flask:
     def load_user(user_id: str):
         return db.session.get(User, int(user_id))
 
+    app.jinja_env.filters["tag_label"] = exercise_vocab.label
+    app.jinja_env.globals["difficulty_labels"] = exercise_vocab.DIFFICULTY_LABELS
+
     _register_routes(app)
     return app
 
@@ -148,6 +154,42 @@ def _is_safe_next_url(next_url: str) -> bool:
         return False
     parsed = urlsplit(next_url)
     return not parsed.netloc and not parsed.scheme
+
+
+def _visible_exercises_query():
+    """Global exercises plus the signed-in user's own custom ones."""
+    return Exercise.query.filter(db.or_(
+        Exercise.owner_user_id.is_(None),
+        Exercise.owner_user_id == current_user.id,
+    ))
+
+
+def _exercise_search_text(exercise: Exercise) -> str:
+    tags = [exercise.movement_pattern, *exercise.primary_muscles,
+            *exercise.secondary_muscles, *exercise.equipment]
+    if exercise.is_bodyweight:
+        tags.append("bodyweight")
+    return " ".join([exercise.name, *tags, *(t.replace("-", " ") for t in tags)]).lower()
+
+
+def _search_exercises(exercises, query: str):
+    """Every word in the query must appear in the name or a tag, so
+    'dumbbell chest' narrows rather than widens."""
+    words = query.lower().split()
+    if not words:
+        return list(exercises)
+    return [e for e in exercises
+            if all(w in _exercise_search_text(e) for w in words)]
+
+
+def _group_by_pattern(exercises):
+    """[(pattern, [exercises sorted by name])] in vocabulary order, empty
+    groups omitted."""
+    groups = {p: [] for p in exercise_vocab.MOVEMENT_PATTERNS}
+    for e in exercises:
+        groups.setdefault(e.movement_pattern, []).append(e)
+    return [(p, sorted(items, key=lambda e: e.name.lower()))
+            for p, items in groups.items() if items]
 
 
 def _register_routes(app: Flask) -> None:
@@ -223,6 +265,27 @@ def _register_routes(app: Flask) -> None:
     @login_required
     def today():
         return render_template("today.html")
+
+    @app.route("/exercises")
+    @login_required
+    def exercises_list():
+        query = (request.args.get("q") or "").strip()[:EXERCISE_SEARCH_MAX_LENGTH]
+        matches = _search_exercises(_visible_exercises_query().all(), query)
+        context = {"groups": _group_by_pattern(matches), "query": query,
+                   "match_count": len(matches)}
+        # History restores also send HX-Request but replace the whole page.
+        if (request.headers.get("HX-Request")
+                and not request.headers.get("HX-History-Restore-Request")):
+            return render_template("_exercise_list.html", **context)
+        return render_template("exercises.html", **context)
+
+    @app.route("/exercises/<slug>")
+    @login_required
+    def exercise_detail(slug: str):
+        exercise = _visible_exercises_query().filter(Exercise.slug == slug).first()
+        if exercise is None:
+            abort(404)
+        return render_template("exercise_detail.html", exercise=exercise)
 
     @app.route("/healthz")
     def healthz():

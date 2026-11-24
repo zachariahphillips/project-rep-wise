@@ -79,6 +79,21 @@ STRESSES = (
 
 DIFFICULTY_MIN = 1
 DIFFICULTY_MAX = 3
+DIFFICULTY_LABELS = {1: "Beginner", 2: "Intermediate", 3: "Advanced"}
+
+# Tags whose hyphen is part of the word, not a space.
+_LABEL_OVERRIDES = {
+    "pull-up-bar": "Pull-up bar",
+    "single-leg": "Single-leg",
+}
+
+
+def label(tag: str) -> str:
+    """Display text for a tag: 'horizontal-push' -> 'Horizontal push'."""
+    if tag in _LABEL_OVERRIDES:
+        return _LABEL_OVERRIDES[tag]
+    text = tag.replace("-", " ")
+    return text[:1].upper() + text[1:]
 
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
