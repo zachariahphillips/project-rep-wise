@@ -2,7 +2,7 @@
 
 A mobile-first workout app that **builds you a training plan from your goals**, then becomes the logbook you use on the gym floor — and adjusts the plan as you get stronger.
 
-**Current status (Phase 1A, 2026-11-19):** Skeleton plus email/password auth: signup with a lb/kg preference, login with remember-me and safe `?next=` redirects, POST-only logout, and a signed-in `/today` placeholder. Phase 1B added the exercise model, a 64-exercise library with coverage guarantees, and the `/exercises` browse/search/detail screens with a bottom tab bar. 199 pytest tests green. Next is Phase 1C (freeform workout logging).
+**Current status (Phase 1A, 2026-11-19):** Skeleton plus email/password auth: signup with a lb/kg preference, login with remember-me and safe `?next=` redirects, POST-only logout, and a signed-in `/today` placeholder. Phase 1B added the exercise model, a 64-exercise library with coverage guarantees, and the `/exercises` browse/search/detail screens with a bottom tab bar. 199 pytest tests green. Next is Phase 1C1 (workout lifecycle).
 
 ---
 
@@ -114,11 +114,31 @@ Shipped:
 - Fixed bottom tab bar (Today / Exercises) with `aria-current` and iPhone safe-area padding
 - `tests/test_phase_1b3.py` — 30 cases. Visual check at 390×844: list, live "dumbbell chest" search, and squat detail
 
-#### 1C — Freeform workout logging (2 sittings)
-- "Start empty workout" → add exercises (picker from 1B3) → log sets (weight, reps, done ✓) → Finish
-- `/history` list of past workouts, `/history/<id>` detail
-- Edit/delete a past set; discard an in-progress workout
+#### 1C — Freeform workout logging (split into three 1-sitting chunks)
+
+Behavior decisions (2026-11-24):
+- **Finish keeps every set with a weight and reps**, checked or not; rows missing either are dropped
+- **Open workouts are never auto-finished.** Today shows "Resume workout" with finish / discard options, however long it's been
+- **Finishing with no kept sets is a discard**, so history never fills with empty workouts
+- **Exercises stay in the order added**; reordering is a later nicety
 - Only one in-progress workout per user at a time
+
+##### 1C1 — Workout lifecycle (1 sitting)
+- `Workout` and `WorkoutSet` models (see "Data model"); sets store weight **with its unit** and a client-generated `client_id` for Phase 9's idempotent offline sync
+- Start (`POST`), discard, and finish routes; starting while one is open resumes it instead of creating a second
+- Today: "Start empty workout" when idle, "Resume workout" card (started time, exercise/set counts) when one is open
+- The finish rules above, enforced server-side and tested
+
+##### 1C2 — Logging sets (1 sitting)
+- Active workout screen: add exercises with the 1B3 picker (`_exercise_list.html`), then add / edit / delete sets via htmx
+- Big thumb-friendly inputs with numeric keypads (`inputmode="decimal"` for weight, `numeric` for reps); weight defaults to the user's unit
+- Remove an exercise from the workout (and its sets)
+
+##### 1C3 — History (1 sitting)
+- `/history`: finished workouts, newest first, with date, duration, and exercise / set counts
+- `/history/<id>`: every exercise and set; edit or delete a set after the fact
+- Delete a whole past workout (with confirm)
+- Strict per-user isolation: other users' workouts 404
 
 #### 1D — Exercise filters (1 sitting)
 - Tap-to-filter chips for equipment and muscle group on `/exercises` and in the picker
