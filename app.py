@@ -8,25 +8,27 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime
 from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 from flask import Flask, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import event, text
+from sqlalchemy.exc import IntegrityError
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import exercise_vocab
 from extensions import csrf, db, login_manager
 from forms import LoginForm, SignupForm
-from models import Exercise, User
+from models import Exercise, User, Workout
 from seed_exercises import seed_exercises
 
 load_dotenv()
 
 log = logging.getLogger(__name__)
 
-APP_PHASE = "1B3"
+APP_PHASE = "1C1"
 
 EXERCISE_SEARCH_MAX_LENGTH = 80
 
@@ -130,6 +132,7 @@ def create_app() -> Flask:
         return db.session.get(User, int(user_id))
 
     app.jinja_env.filters["tag_label"] = exercise_vocab.label
+    app.jinja_env.filters["relative_time"] = _relative_time
     app.jinja_env.globals["difficulty_labels"] = exercise_vocab.DIFFICULTY_LABELS
 
     _register_routes(app)
@@ -154,6 +157,34 @@ def _is_safe_next_url(next_url: str) -> bool:
         return False
     parsed = urlsplit(next_url)
     return not parsed.netloc and not parsed.scheme
+
+
+def _relative_time(when: datetime, now: datetime = None) -> str:
+    """'just now', '5 min ago', '2 hr ago', 'yesterday', '3 days ago' for a
+    naive UTC datetime."""
+    seconds = int(((now or datetime.utcnow()) - when).total_seconds())
+    if seconds < 60:
+        return "just now"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes} min ago"
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours} hr ago"
+    days = hours // 24
+    return "yesterday" if days == 1 else f"{days} days ago"
+
+
+def _open_workout_for(user):
+    return Workout.query.filter_by(user_id=user.id, finished_at=None).first()
+
+
+def _get_open_workout_or_404(workout_id: int) -> Workout:
+    """404 for someone else's workout too, so ids don't leak existence."""
+    workout = db.session.get(Workout, workout_id)
+    if workout is None or workout.user_id != current_user.id or not workout.is_open:
+        abort(404)
+    return workout
 
 
 def _visible_exercises_query():
@@ -264,7 +295,56 @@ def _register_routes(app: Flask) -> None:
     @app.route("/today")
     @login_required
     def today():
-        return render_template("today.html")
+        return render_template("today.html", open_workout=_open_workout_for(current_user))
+
+    @app.route("/workouts/start", methods=["POST"])
+    @login_required
+    def workout_start():
+        workout = _open_workout_for(current_user)
+        if workout is None:
+            workout = Workout(user_id=current_user.id)
+            db.session.add(workout)
+            try:
+                db.session.commit()
+            except IntegrityError:
+                # A concurrent Start won the unique-open-workout index.
+                db.session.rollback()
+                workout = _open_workout_for(current_user)
+        return redirect(url_for("workout_active", workout_id=workout.id))
+
+    @app.route("/workouts/<int:workout_id>")
+    @login_required
+    def workout_active(workout_id: int):
+        return render_template("workout.html", workout=_get_open_workout_or_404(workout_id))
+
+    @app.route("/workouts/<int:workout_id>/finish", methods=["POST"])
+    @login_required
+    def workout_finish(workout_id: int):
+        workout = _get_open_workout_or_404(workout_id)
+        kept = workout.prune_unlogged()
+        if kept == 0:
+            db.session.delete(workout)
+            db.session.commit()
+            flash("Nothing was logged, so the workout was discarded.", "info")
+            return redirect(url_for("today"))
+        workout.finished_at = datetime.utcnow()
+        exercise_count = len(workout.exercises)
+        db.session.commit()
+        flash(
+            f"Workout saved: {exercise_count} exercise{'s' if exercise_count != 1 else ''}, "
+            f"{kept} set{'s' if kept != 1 else ''}.",
+            "success",
+        )
+        return redirect(url_for("today"))
+
+    @app.route("/workouts/<int:workout_id>/discard", methods=["POST"])
+    @login_required
+    def workout_discard(workout_id: int):
+        workout = _get_open_workout_or_404(workout_id)
+        db.session.delete(workout)
+        db.session.commit()
+        flash("Workout discarded.", "info")
+        return redirect(url_for("today"))
 
     @app.route("/exercises")
     @login_required

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Workout · RepWise{% endblock %}
+
+{% block content %}
+<section>
+  <h1 class="text-2xl font-semibold tracking-tight">Workout</h1>
+  <p class="mt-1 text-sm text-stone-500 dark:text-stone-400">Started {{ workout.started_at | relative_time }}</p>
+
+  <div id="workout-exercises" class="mt-6 space-y-4">
+    {% for we in workout.exercises %}
+      <article id="workout-exercise-{{ we.id }}" class="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
+        <h2 class="font-semibold">{{ we.exercise.name }}</h2>
+        {% if we.sets %}
+          <ol class="mt-2 space-y-1 text-sm">
+            {% for s in we.sets %}
+              <li>Set {{ loop.index }}:
+                {% if not s.reps %}–
+                {% elif s.weight is none %}{{ s.reps }} reps
+                {% else %}{{ "%g" | format(s.weight) }} {{ s.unit }} × {{ s.reps }}{% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        {% else %}
+          <p class="mt-1 text-sm text-stone-500 dark:text-stone-400">No sets yet</p>
+        {% endif %}
+      </article>
+    {% else %}
+      <div class="rounded-2xl border border-dashed border-stone-300 bg-white px-5 py-8 text-center dark:border-stone-700 dark:bg-stone-900">
+        <p class="font-medium">No exercises yet</p>
+        <p class="mt-1 text-sm text-stone-500 dark:text-stone-400">Adding exercises and logging sets is coming next.</p>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="mt-8 space-y-3">
+    <form action="{{ url_for('workout_finish', workout_id=workout.id) }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <button type="submit"
+              class="inline-flex h-12 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 text-base font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.98]">
+        Finish workout
+      </button>
+    </form>
+    <form action="{{ url_for('workout_discard', workout_id=workout.id) }}" method="post"
+          onsubmit="return confirm('Discard this workout? Logged sets will be lost.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <button type="submit"
+              class="inline-flex h-12 w-full items-center justify-center rounded-xl border border-red-200 bg-white px-4 text-base font-semibold text-red-700 transition hover:bg-red-50 active:scale-[0.98] dark:border-red-900 dark:bg-stone-900 dark:text-red-400 dark:hover:bg-red-950">
+        Discard workout
+      </button>
+    </form>
+  </div>
+</section>
+{% endblock %}

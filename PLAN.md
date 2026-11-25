@@ -2,7 +2,7 @@
 
 A mobile-first workout app that **builds you a training plan from your goals**, then becomes the logbook you use on the gym floor — and adjusts the plan as you get stronger.
 
-**Current status (Phase 1A, 2026-11-19):** Skeleton plus email/password auth: signup with a lb/kg preference, login with remember-me and safe `?next=` redirects, POST-only logout, and a signed-in `/today` placeholder. Phase 1B added the exercise model, a 64-exercise library with coverage guarantees, and the `/exercises` browse/search/detail screens with a bottom tab bar. 199 pytest tests green. Next is Phase 1C1 (workout lifecycle).
+**Current status (Phase 1C1, 2026-11-25):** Skeleton plus email/password auth: signup with a lb/kg preference, login with remember-me and safe `?next=` redirects, POST-only logout, and a signed-in `/today` placeholder. Phase 1B added the exercise model, a 64-exercise library with coverage guarantees, and the `/exercises` browse/search/detail screens with a bottom tab bar. Phase 1C1 added workouts: start / resume / finish / discard from Today, with the finish rules enforced server-side. 229 pytest tests green. Next is Phase 1C2 (logging sets).
 
 ---
 
@@ -117,17 +117,25 @@ Shipped:
 #### 1C — Freeform workout logging (split into three 1-sitting chunks)
 
 Behavior decisions (2026-11-24):
-- **Finish keeps every set with a weight and reps**, checked or not; rows missing either are dropped
+- **Finish keeps every set with a weight and reps**, checked or not; rows missing either are dropped. Exception (1C1): rep-progressed exercises (no plate increment, e.g. push-ups, pull-ups) only need reps. Exercises left with no sets are dropped too
 - **Open workouts are never auto-finished.** Today shows "Resume workout" with finish / discard options, however long it's been
 - **Finishing with no kept sets is a discard**, so history never fills with empty workouts
 - **Exercises stay in the order added**; reordering is a later nicety
 - Only one in-progress workout per user at a time
 
-##### 1C1 — Workout lifecycle (1 sitting)
+##### 1C1 — Workout lifecycle (1 sitting) — DONE 2026-11-25
 - `Workout` and `WorkoutSet` models (see "Data model"); sets store weight **with its unit** and a client-generated `client_id` for Phase 9's idempotent offline sync
 - Start (`POST`), discard, and finish routes; starting while one is open resumes it instead of creating a second
 - Today: "Start empty workout" when idle, "Resume workout" card (started time, exercise/set counts) when one is open
 - The finish rules above, enforced server-side and tested
+
+Shipped:
+- `Workout`, `WorkoutExercise`, `WorkoutSet` models. `WorkoutExercise` is new versus the first-cut data model: it holds an exercise's place in the workout before any sets exist, which the "order added" rule needs
+- A partial unique index (`user_id WHERE finished_at IS NULL`) backstops "one open workout per user"; a racing second Start falls back to resuming
+- `POST /workouts/start`, `GET /workouts/<id>` (read-only active screen until 1C2), `POST /workouts/<id>/finish`, `POST /workouts/<id>/discard` (with a confirm). Someone else's workout, or a finished one, is a 404
+- Finish logic lives in `WorkoutSet.is_logged` and `Workout.prune_unlogged()`; `program_day_id` / `template_id` are deferred to the phases that add those tables
+- Today tab stays highlighted on the workout screen; `relative_time` Jinja filter ("just now", "3 days ago")
+- `tests/test_phase_1c1.py` — 30 cases. Visual check at 390×844: idle Today, resume card, active screen, finish flash
 
 ##### 1C2 — Logging sets (1 sitting)
 - Active workout screen: add exercises with the 1B3 picker (`_exercise_list.html`), then add / edit / delete sets via htmx
@@ -353,9 +361,14 @@ workouts
   id, user_id, program_day_id (nullable), template_id (nullable),
   started_at, finished_at (null = in progress), notes
 
+  -- unique open workout per user: (user_id) WHERE finished_at IS NULL
+
+workout_exercises                                   -- 1C1
+  id, workout_id, exercise_id, position
+
 workout_sets
-  id, client_id (uuid, unique — for idempotent offline sync), workout_id,
-  exercise_id, position, weight, unit, reps, completed, is_warmup, logged_at
+  id, client_id (uuid, unique — for idempotent offline sync), workout_exercise_id,
+  position, weight, unit, reps, completed, is_warmup, logged_at
 
 progression_suggestions                             -- Phase 7
   id, user_id, program_slot_id, kind ("increase"|"deload"|"hold"),

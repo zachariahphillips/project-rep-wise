@@ -53,6 +53,7 @@ annotations`, `Optional[...]` instead of `X | None` at runtime).
 | `extensions.py` | `db`, `login_manager`, `csrf` singletons. |
 | `templates/_macros.html` | Shared form-field and button macros. |
 | `templates/_exercise_list.html` | htmx swap target for exercise search; reused as the 1C exercise picker. |
+| `templates/workout.html` | Active workout screen (finish / discard). 1C2 adds set logging here. |
 | `templates/` | Jinja. `_partial.html` files will be htmx swap targets. |
 | `assets/css/app.css` | Tailwind entry; compiled to `static/css/app.css` (committed). |
 | `tests/conftest.py` | CSRF-aware `Client` wrapper, per-test SQLite file. |

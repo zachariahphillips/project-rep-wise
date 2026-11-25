@@ -5,13 +5,36 @@
 {% block content %}
 <section>
   <h1 class="text-2xl font-semibold tracking-tight">Hey {{ current_user.first_name }}</h1>
-  <p class="mt-1 text-sm text-stone-500 dark:text-stone-400">Ready when you are.</p>
+  <p class="mt-1 text-sm text-stone-500 dark:text-stone-400">
+    {{ "You have a workout in progress." if open_workout else "Ready when you are." }}
+  </p>
 
-  <div class="mt-6 rounded-2xl border border-dashed border-stone-300 bg-white px-5 py-8 text-center dark:border-stone-700 dark:bg-stone-900">
-    <p class="font-medium">No workouts yet</p>
-    <p class="mt-1 text-sm text-stone-500 dark:text-stone-400">
-      Workout logging is coming next. Weights will show in {{ current_user.unit_pref }}.
+  {% if open_workout %}
+    {% set n_ex = open_workout.exercises | length %}
+    {% set n_sets = open_workout.set_count %}
+    <div id="resume-workout" class="mt-6 rounded-2xl border border-indigo-200 bg-indigo-50 p-5 dark:border-indigo-900 dark:bg-indigo-950">
+      <p class="text-sm font-medium text-indigo-700 dark:text-indigo-300">Workout in progress</p>
+      <p class="mt-1 text-sm text-indigo-900/80 dark:text-indigo-200/80">
+        Started {{ open_workout.started_at | relative_time }}
+        · {{ n_ex }} exercise{{ "" if n_ex == 1 else "s" }}
+        · {{ n_sets }} set{{ "" if n_sets == 1 else "s" }}
+      </p>
+      <a href="{{ url_for('workout_active', workout_id=open_workout.id) }}"
+         class="mt-4 inline-flex h-12 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 text-base font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.98]">
+        Resume workout
+      </a>
+    </div>
+  {% else %}
+    <form action="{{ url_for('workout_start') }}" method="post" class="mt-6">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <button type="submit"
+              class="inline-flex h-14 w-full items-center justify-center rounded-2xl bg-indigo-600 px-4 text-base font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:ring-offset-2 dark:focus:ring-offset-stone-950">
+        Start empty workout
+      </button>
+    </form>
+    <p class="mt-3 text-center text-sm text-stone-500 dark:text-stone-400">
+      Weights are logged in {{ current_user.unit_pref }}.
     </p>
-  </div>
+  {% endif %}
 </section>
 {% endblock %}
